@@ -4,13 +4,21 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - '!.github/workflows/vercel-production.yml'
+
+concurrency:
+  group: production
+  cancel-in-progress: false
 
 jobs:
   Deploy-Production:
     runs-on: ubuntu-latest
-    environment:
-      name: Production
-      url: ${{ steps.deploy.outputs.url }}
+    # Map the deployment outputs
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v4
       
@@ -19,6 +27,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
+          
+      - name: Cache Vercel CLI
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.vercel
+          key: ${{ runner.os }}-vercel-${{ hashFiles('**/package-lock.json') }}
           
       - name: Install dependencies
         run: npm ci

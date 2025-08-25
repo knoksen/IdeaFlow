@@ -1,0 +1,120 @@
+# Dependencies
+dependencies:
+  - any: ['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml']
+  - '.github/dependabot.yml'
+
+# Package type labels
+prod-deps:
+  - any: ['package.json']
+    all: ['!devDependencies']
+dev-deps:
+  - any: ['package.json']
+    all: ['devDependencies']
+
+# Frontend
+frontend:
+  - 'src/app/**/*'
+  - 'src/components/**/*'
+  - 'src/hooks/**/*'
+  - 'src/styles/**/*'
+  - 'public/**/*'
+  - any: ['*.css', '*.scss', '*.less']
+
+# Backend & API
+api:
+  - 'src/api/**/*'
+  - 'src/server/**/*'
+  - any: ['api/**/*', 'server/**/*']
+
+# Infrastructure
+infrastructure:
+  - '.devcontainer/**/*'
+  - 'docker/**/*'
+  - 'Dockerfile*'
+  - 'docker-compose*.yml'
+  - '.dockerignore'
+  - 'terraform/**/*'
+
+# CI/CD
+ci:
+  - '.github/workflows/**/*'
+  - '.gitlab-ci.yml'
+  - 'azure-pipelines.yml'
+  - '.circleci/**/*'
+
+# Documentation
+docs:
+  - 'README.md'
+  - 'CONTRIBUTING.md'
+  - 'CODE_OF_CONDUCT.md'
+  - 'SECURITY.md'
+  - 'docs/**/*'
+  - '**/*.md'
+  - any: ['**/README*', '**/CHANGELOG*']
+
+# Configuration
+config:
+  - '.github/**/*'
+  - '*.config.{js,ts,json}'
+  - '.env*'
+  - 'tsconfig*.json'
+  - '.eslintrc*'
+  - '.prettierrc*'
+  - '.editorconfig'
+  - 'next.config.*'
+  - 'vite.config.*'
+  - 'tailwind.config.*'
+
+# Testing
+tests:
+  - any: ['**/*.{spec,test}.{js,jsx,ts,tsx}']
+  - 'tests/**/*'
+  - '__tests__/**/*'
+  - 'cypress/**/*'
+  - 'jest.config.*'
+  - 'cypress.config.*'
+
+# Types
+types:
+  - any: ['**/*.d.ts']
+  - 'types/**/*'
+  - '@types/**/*'
+
+# Performance
+performance:
+  - any: ['**/perf/**/*', '**/benchmark/**/*']
+
+# Security
+security:
+  - 'SECURITY.md'
+  - '.github/security/**/*'
+  - '**/security/**/*'
+
+# UI/UX
+ui:
+  - 'src/**/styles/**/*'
+  - '**/*.css'
+  - '**/*.scss'
+  - 'src/components/ui/**/*'
+
+# State Management
+state:
+  - 'src/store/**/*'
+  - 'src/reducers/**/*'
+  - 'src/context/**/*'
+  - 'src/providers/**/*'
+
+# Size labels
+size/XS:
+  - size-below: 10
+size/S:
+  - size-above: 10
+  - size-below: 50
+size/M:
+  - size-above: 50
+  - size-below: 200
+size/L:
+  - size-above: 200
+  - size-below: 500
+size/XL:
+  - size-above: 500

@@ -1,0 +1,80 @@
+version: 2
+updates:
+  # Keep npm packages up to date
+  - package-ecosystem: "npm"
+    directory: "/" # Root of your repo
+    schedule:
+      interval: "weekly"
+      time: "03:00"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "npm"
+    groups:
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    versioning-strategy: auto
+    target-branch: "main"
+
+  # Keep GitHub Actions up to date
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # Keep Docker images up to date
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # Keep TypeScript types up to date
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      time: "03:00"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-type: "direct"
+        dependency-name: "@types/*"
+    commit-message:
+      prefix: "types"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "types"
+    groups:
+      types:
+        patterns:
+          - "@types/*"

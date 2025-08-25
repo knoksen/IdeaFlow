@@ -1,0 +1,30 @@
+{
+    "name": "One-Click Run Dev",
+    "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+    "remoteUser": "node",
+    "updateContentCommand": "bash -lc 'if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm i; elif [ -f yarn.lock ]; then corepack enable && yarn install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; else npm i; fi'",
+    "postStartCommand": "bash -lc 'if [ -f package.json ]; then if jq -e .scripts.dev package.json >/dev/null 2>&1; then npm run dev -- --host 0.0.0.0; elif jq -e .scripts.start package.json >/dev/null 2>&1; then npm start; else echo \"No dev/start script found\"; fi; fi'",
+    "forwardPorts": [
+        5173,
+        3000,
+        4173
+    ],
+    "portsAttributes": {
+        "5173": {
+            "label": "Vite Dev Server",
+            "onAutoForward": "openBrowser"
+        },
+        "3000": {
+            "label": "Web App",
+            "onAutoForward": "openBrowser"
+        },
+        "4173": {
+            "label": "Vite Preview",
+            "onAutoForward": "openBrowser"
+        }
+    },
+    "containerEnv": {
+        "NODE_ENV": "development",
+        "API_KEY": "${localEnv:API_KEY}"
+    }
+}

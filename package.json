@@ -59,8 +59,14 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^9.34.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-tailwindcss": "^3.18.2",
     "genkit-cli": "^1.14.1",
     "postcss": "^8",
+    "prettier": "^3.6.2",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
   }

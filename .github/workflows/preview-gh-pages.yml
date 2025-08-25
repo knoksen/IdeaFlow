@@ -31,7 +31,7 @@ jobs:
           mkdir -p dist
           cp dist/index.html dist/404.html || true
           touch dist/.nojekyll
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist
   

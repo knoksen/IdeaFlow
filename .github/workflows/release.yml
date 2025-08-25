@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  discussions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 1
+            });
+            
+            const lastRelease = releases[0]?.published_at || (await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 1
+            })).data[0].commit.committer.date;
+            
+            const { data: commits } = await github.rest.repos.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              since: lastRelease
+            });
+            
+            const categories = {
+              feat: '🚀 Features',
+              fix: '🐛 Bug Fixes',
+              perf: '⚡️ Performance',
+              refactor: '♻️ Refactoring',
+              style: '💄 Styling',
+              docs: '📝 Documentation',
+              test: '✅ Testing',
+              build: '📦 Build',
+              ci: '👷 CI',
+              chore: '🔧 Chores'
+            };
+            
+            const changes = {};
+            
+            commits.forEach(({ commit }) => {
+              const message = commit.message.split('\n')[0];
+              const match = message.match(/^(feat|fix|perf|refactor|style|docs|test|build|ci|chore)(\(.+\))?: (.+)$/);
+              
+              if (match) {
+                const [, type, , desc] = match;
+                if (!changes[type]) changes[type] = [];
+                changes[type].push(desc);
+              }
+            });
+            
+            let changelog = '## What\'s Changed\n\n';
+            
+            Object.entries(categories).forEach(([type, title]) => {
+              if (changes[type]?.length) {
+                changelog += `### ${title}\n\n`;
+                changes[type].forEach(desc => {
+                  changelog += `- ${desc}\n`;
+                });
+                changelog += '\n';
+              }
+            });
+            
+            return changelog;
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.changelog.outputs.result }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            .next/static/**/*
+            
+      - name: Notify on Discussion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.discussions.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Release ${process.env.VERSION} Discussion`,
+              body: `## Release ${process.env.VERSION} is out! 🎉\n\n${process.env.CHANGELOG}\n\nPlease share your feedback and report any issues you encounter.`,
+              category_id: 'DIC_kwDOXXXXXXXXXX'  # Replace with your Discussion category ID
+            });
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+          CHANGELOG: ${{ steps.changelog.outputs.result }}

@@ -1,0 +1,52 @@
+name: PR Title Checker
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const body = context.payload.pull_request.body || '';
+            const prNumber = context.payload.pull_request.number;
+            
+            let issues = [];
+            
+            // Check title format
+            if (!title.match(/^(feat|fix|docs|style|refactor|perf|test|chore|ci)(\(.+\))?: .+/)) {
+              issues.push('- Title should follow conventional commits format: `type(scope): description`');
+            }
+            
+            // Check body length
+            if (body.length < 10) {
+              issues.push('- Description is too short. Please provide more details about your changes.');
+            }
+            
+            // Check for test plan
+            if (!body.toLowerCase().includes('test plan:')) {
+              issues.push('- Missing test plan section. Please describe how you tested your changes.');
+            }
+            
+            if (issues.length > 0) {
+              const message = `### PR Title/Description Check Failed\n\nPlease fix the following issues:\n\n${issues.join('\n')}`;
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: message
+              });
+              
+              core.setFailed('PR title or description needs improvements');
+            }

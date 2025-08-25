@@ -1,0 +1,96 @@
+name: Test & Coverage
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - 'package.json'
+      - 'jest.config.*'
+      - 'vitest.config.*'
+      - '.github/workflows/test.yml'
+
+jobs:
+  test:
+    name: Test & Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run type check
+        run: npm run type-check || npm run tsc
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests with coverage
+        run: npm run test -- --coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unittests
+          fail_ci_if_error: true
+
+      - name: Report Coverage
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = JSON.parse(fs.readFileSync('./coverage/coverage-final.json', 'utf8'));
+            
+            let total = {
+              statements: 0,
+              branches: 0,
+              functions: 0,
+              lines: 0
+            };
+            
+            Object.values(coverage).forEach(file => {
+              const summary = file.summary;
+              total.statements += summary.statements.pct;
+              total.branches += summary.branches.pct;
+              total.functions += summary.functions.pct;
+              total.lines += summary.lines.pct;
+            });
+            
+            const fileCount = Object.keys(coverage).length;
+            Object.keys(total).forEach(key => {
+              total[key] = (total[key] / fileCount).toFixed(2);
+            });
+            
+            const comment = `## Coverage Report
+            | Type | Coverage |
+            | ---- | -------- |
+            | Statements | ${total.statements}% |
+            | Branches | ${total.branches}% |
+            | Functions | ${total.functions}% |
+            | Lines | ${total.lines}% |
+            `;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });

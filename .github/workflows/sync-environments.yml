@@ -1,0 +1,107 @@
+name: Sync Environments
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.env.example'
+      - '.env.defaults'
+      - 'package.json'
+      - 'next.config.*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment to sync'
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
+      force:
+        description: 'Force sync (may override environment-specific settings)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    name: Sync Configuration
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    permissions:
+      contents: read
+      deployments: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Check environment variables
+        id: env_check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read example env file
+            const exampleEnv = fs.readFileSync('.env.example', 'utf8')
+              .split('\n')
+              .filter(line => line && !line.startsWith('#'))
+              .map(line => line.split('=')[0].trim());
+            
+            // Get current env vars from Vercel
+            const { stdout: vercelEnv } = await execAsync('vercel env ls --token=${{ secrets.VERCEL_TOKEN }}');
+            const currentEnv = vercelEnv.split('\n')
+              .filter(line => line.includes('='))
+              .map(line => line.split('=')[0].trim());
+            
+            // Find missing vars
+            const missing = exampleEnv.filter(v => !currentEnv.includes(v));
+            
+            if (missing.length > 0) {
+              core.setOutput('missing_vars', missing.join(','));
+              const message = `Missing environment variables detected:
+              ${missing.map(v => `- ${v}`).join('\n')}
+              
+              Please add these variables in Vercel project settings.`;
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🔧 Missing Environment Variables',
+                body: message,
+                labels: ['env-setup']
+              });
+              
+              core.setFailed('Environment variables are missing');
+            }
+            
+      - name: Sync package.json scripts
+        if: github.event.inputs.force == 'true' || github.event_name == 'push'
+        run: |
+          SCRIPTS=$(jq -r '.scripts' package.json)
+          echo "Updating build and start scripts in Vercel..."
+          vercel env add BUILD_COMMAND "$(echo $SCRIPTS | jq -r '.build')" --token=${{ secrets.VERCEL_TOKEN }}
+          vercel env add START_COMMAND "$(echo $SCRIPTS | jq -r '.start')" --token=${{ secrets.VERCEL_TOKEN }}
+          
+      - name: Sync Next.js config
+        if: github.event.inputs.force == 'true' || github.event_name == 'push'
+        run: |
+          CONFIG=$(cat next.config.* | base64)
+          echo "Updating Next.js configuration in Vercel..."
+          vercel env add NEXT_CONFIG "$CONFIG" --token=${{ secrets.VERCEL_TOKEN }}
+          
+      - name: Update deployment
+        if: success()
+        run: |
+          echo "Triggering deployment redeploy..."
+          vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}

@@ -1,0 +1,192 @@
+name: Code Quality
+
+on:
+  pull_request:
+    paths:
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - '**.css'
+      - '**.scss'
+      - 'package.json'
+      - '.prettier*'
+      - '.eslint*'
+      - 'tsconfig.json'
+  push:
+    branches: [ main ]
+    paths:
+      - '**.ts'
+      - '**.tsx'
+      - '**.js'
+      - '**.jsx'
+      - '**.css'
+      - '**.scss'
+
+jobs:
+  quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        id: format
+        run: |
+          npx prettier --check "**/*.{ts,tsx,js,jsx,css,scss,json,md}" || (
+            npx prettier --write "**/*.{ts,tsx,js,jsx,css,scss,json,md}"
+            echo "formatted=true" >> $GITHUB_OUTPUT
+          )
+
+      - name: Create formatting PR comment
+        if: steps.format.outputs.formatted == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '✨ Code has been automatically formatted with Prettier'
+            });
+
+      - name: Run ESLint
+        id: lint
+        run: |
+          npx eslint --format=json --output-file eslint-report.json . || true
+          echo "report_exists=true" >> $GITHUB_OUTPUT
+
+      - name: Analyze ESLint results
+        if: steps.lint.outputs.report_exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('eslint-report.json', 'utf8'));
+            
+            const severityCounts = {
+              error: 0,
+              warning: 0,
+              info: 0
+            };
+            
+            const fileIssues = {};
+            
+            report.forEach(result => {
+              if (result.messages.length > 0) {
+                fileIssues[result.filePath] = {
+                  errors: [],
+                  warnings: [],
+                  info: []
+                };
+                
+                result.messages.forEach(msg => {
+                  const issue = `Line ${msg.line}: ${msg.message} (${msg.ruleId})`;
+                  switch (msg.severity) {
+                    case 2:
+                      severityCounts.error++;
+                      fileIssues[result.filePath].errors.push(issue);
+                      break;
+                    case 1:
+                      severityCounts.warning++;
+                      fileIssues[result.filePath].warnings.push(issue);
+                      break;
+                    default:
+                      severityCounts.info++;
+                      fileIssues[result.filePath].info.push(issue);
+                  }
+                });
+              }
+            });
+            
+            let comment = `## ESLint Analysis Results\n\n`;
+            comment += `### Summary\n`;
+            comment += `- 🚨 ${severityCounts.error} errors\n`;
+            comment += `- ⚠️ ${severityCounts.warning} warnings\n`;
+            comment += `- ℹ️ ${severityCounts.info} info\n\n`;
+            
+            if (Object.keys(fileIssues).length > 0) {
+              comment += `### Details\n\n`;
+              Object.entries(fileIssues).forEach(([file, issues]) => {
+                if (issues.errors.length + issues.warnings.length + issues.info.length > 0) {
+                  comment += `#### ${file}\n`;
+                  if (issues.errors.length > 0) {
+                    comment += `🚨 Errors:\n${issues.errors.map(i => `- ${i}`).join('\n')}\n`;
+                  }
+                  if (issues.warnings.length > 0) {
+                    comment += `⚠️ Warnings:\n${issues.warnings.map(i => `- ${i}`).join('\n')}\n`;
+                  }
+                  if (issues.info.length > 0) {
+                    comment += `ℹ️ Info:\n${issues.info.map(i => `- ${i}`).join('\n')}\n`;
+                  }
+                  comment += '\n';
+                }
+              });
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+            
+            if (severityCounts.error > 0) {
+              core.setFailed(`Found ${severityCounts.error} ESLint errors`);
+            }
+
+      - name: Run type check
+        id: typecheck
+        run: |
+          npm run type-check || npm run tsc > typescript-report.txt || true
+          echo "report_exists=true" >> $GITHUB_OUTPUT
+
+      - name: Analyze TypeScript errors
+        if: steps.typecheck.outputs.report_exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('typescript-report.txt', 'utf8');
+            
+            const errors = report.match(/error TS\d+:/g)?.length || 0;
+            
+            if (errors > 0) {
+              const comment = `## TypeScript Analysis Results\n\n` +
+                            `Found ${errors} type errors. Full report:\n\n` +
+                            '```\n' + report + '\n```';
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              
+              core.setFailed(`Found ${errors} TypeScript errors`);
+            }
+
+      - name: Check imports
+        run: |
+          npx madge --circular --extensions ts,tsx,js,jsx . || true
+
+      - name: Run bundle analysis
+        run: |
+          npm run build
+          npx next-bundle-analyzer

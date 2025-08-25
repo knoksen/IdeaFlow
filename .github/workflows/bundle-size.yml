@@ -1,0 +1,102 @@
+name: Bundle Size Check
+
+on:
+  pull_request:
+    paths:
+      - '**.js'
+      - '**.jsx'
+      - '**.ts'
+      - '**.tsx'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'package-lock.json'
+
+jobs:
+  size:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Compare bundle size
+        uses: preactjs/compressed-size-action@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: '.next/static/**/*.js'
+          strip-hash: true
+          compression: 'gzip'
+          minimum-change-threshold: 100 # 100 bytes
+
+  lighthouse:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Start server
+        run: npm run start & npx wait-on http://localhost:3000
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: '.github/lighthouse-config.json'
+
+      - name: Format lighthouse score
+        if: always()
+        id: format_lighthouse_score
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const results = require('./lighthouse-results.json');
+            const score = results[0].summary;
+            const formatScore = (value) => Math.round(value * 100);
+            
+            const comment = `## Lighthouse Scores
+            | Category | Score |
+            | -------- | ----- |
+            | Performance | ${formatScore(score.performance)}% |
+            | Accessibility | ${formatScore(score.accessibility)}% |
+            | Best Practices | ${formatScore(score['best-practices'])}% |
+            | SEO | ${formatScore(score.seo)}% |
+            `;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });

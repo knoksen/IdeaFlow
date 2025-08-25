@@ -1,0 +1,4 @@
+ext install bradlc.vscode-tailwindcss
+ext install dbaeumer.vscode-eslint
+ext install esbenp.prettier-vscode
+ext install rbbit.typescript-hero

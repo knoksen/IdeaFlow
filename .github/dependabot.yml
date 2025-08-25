@@ -1,131 +1,31 @@
 version: 2
 updates:
-  # Production dependencies
+  # Keep npm packages up to date
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/" # Root of your repo
     schedule:
       interval: "weekly"
-      time: "03:00"
-      day: "monday"
     open-pull-requests-limit: 10
     commit-message:
-      prefix: "deps(prod)"
-      prefix-development: "deps(dev)"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "production"
+      prefix: "deps"
     groups:
-      production-deps:
-        dependency-type: "production"
+      minor-and-patch:
         patterns:
           - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    versioning-strategy: auto
-    target-branch: "main"
-    allow:
-      - dependency-type: "production"
 
-  # Development dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      time: "03:00"
-      day: "wednesday"
-    open-pull-requests-limit: 10
-    commit-message:
-      prefix: "deps(dev)"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "development"
-    groups:
-      dev-deps:
-        dependency-type: "development"
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    versioning-strategy: auto
-    allow:
-      - dependency-type: "development"
-
-  # TypeScript types
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      time: "03:00"
-      day: "friday"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "types"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "types"
-    groups:
-      types:
-        patterns:
-          - "@types/*"
-    allow:
-      - dependency-type: "direct"
-        dependency-name: "@types/*"
-
-  # GitHub Actions
+  # Keep GitHub Actions up to date
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-      time: "03:00"
-      day: "sunday"
     open-pull-requests-limit: 5
     commit-message:
       prefix: "ci"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "github-actions"
-      - "ci"
-    groups:
-      actions:
-        patterns:
-          - "*"
 
-  # Docker images
+  # Keep Docker images up to date (optional, if used in workflows)
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
-      time: "03:00"
-      day: "tuesday"
-    open-pull-requests-limit: 5
     commit-message:
       prefix: "docker"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "docker"
-      - "infrastructure"
-
-  # Terraform providers and modules
-  - package-ecosystem: "terraform"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      time: "03:00"
-      day: "thursday"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "terraform"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "terraform"
-      - "infrastructure"

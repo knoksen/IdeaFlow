@@ -34,7 +34,7 @@ jobs:
         run: npm run build
 
       - name: Compare bundle size
-        uses: preactjs/compressed-size-action@v2
+        uses: preactjs/compressed-size-action@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: '.next/static/**/*.js'
